@@ -81,11 +81,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, toRef } from 'vue';
-import type { Metrics } from '@/model/Metrics';
+import { defineComponent, ref, toRef, watch } from 'vue';
+import type { PropType } from 'vue';
 import { Breakdown } from '@/model/Breakdown';
-import { Pie } from 'vue-chartjs'
-
+import type { Metrics } from '@/model/Metrics';
+import { Pie } from 'vue-chartjs';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -118,7 +118,7 @@ export default defineComponent({
   },
   props: {
     metrics: {
-      type: Object,
+      type: Array as PropType<Metrics[]>,
       required: true
     },
     breakdownKey: {
@@ -159,76 +159,103 @@ export default defineComponent({
       '#7CFC00'  // Lawn Green
     ]);
 
-    const data = toRef(props, 'metrics').value;
+    // Función para procesar los datos
+    const processData = (data: Metrics[]) => {
+      if (!data || data.length === 0) return;
+      
+      // Limpiar la lista de breakdowns para evitar duplicados
+      breakdownList.value = [];
 
-    // Process the breakdown separately
-    data.forEach((m: Metrics) => m.breakdown.forEach(breakdownData => {
-      const breakdownName = breakdownData[props.breakdownKey as keyof typeof breakdownData] as string;
-      let breakdown = breakdownList.value.find(b => b.name === breakdownName); if (!breakdown) {
-        // Create a new breakdown object if it does not exist
-        breakdown = new Breakdown({
-          name: breakdownName,
-          acceptedPrompts: breakdownData.acceptances_count,
-          suggestedPrompts: breakdownData.suggestions_count,
-          suggestedLinesOfCode: breakdownData.lines_suggested,
-          acceptedLinesOfCode: breakdownData.lines_accepted,
-        });
-        breakdownList.value.push(breakdown);
-      } else {
-        // Update the existing breakdown object        breakdown.acceptedPrompts += breakdownData.acceptances_count;
-        breakdown.suggestedPrompts += breakdownData.suggestions_count;
-        breakdown.suggestedLinesOfCode += breakdownData.lines_suggested;
-        breakdown.acceptedLinesOfCode += breakdownData.lines_accepted;
-      }
-      // Recalculate the acceptance rates
-      breakdown.acceptanceRateByCount = breakdown.suggestedPrompts !== 0 ? (breakdown.acceptedPrompts / breakdown.suggestedPrompts) * 100 : 0;
-      breakdown.acceptanceRateByLines = breakdown.suggestedLinesOfCode !== 0 ? (breakdown.acceptedLinesOfCode / breakdown.suggestedLinesOfCode) * 100 : 0;
+      // Process the breakdown separately
+      data.forEach((m: Metrics) => m.breakdown.forEach(breakdownData => {
+        const breakdownName = breakdownData[props.breakdownKey as keyof typeof breakdownData] as string;
+        let breakdown = breakdownList.value.find(b => b.name === breakdownName); 
+        if (!breakdown) {
+          // Create a new breakdown object if it does not exist
+          breakdown = new Breakdown({
+            name: breakdownName,
+            acceptedPrompts: breakdownData.acceptances_count,
+            suggestedPrompts: breakdownData.suggestions_count,
+            suggestedLinesOfCode: breakdownData.lines_suggested,
+            acceptedLinesOfCode: breakdownData.lines_accepted,
+          });
+          breakdownList.value.push(breakdown);
+        } else {
+          // Update the existing breakdown object        
+          breakdown.acceptedPrompts += breakdownData.acceptances_count;
+          breakdown.suggestedPrompts += breakdownData.suggestions_count;
+          breakdown.suggestedLinesOfCode += breakdownData.lines_suggested;
+          breakdown.acceptedLinesOfCode += breakdownData.lines_accepted;
+        }
+        // Recalculate the acceptance rates
+        breakdown.acceptanceRateByCount = breakdown.suggestedPrompts !== 0 ? (breakdown.acceptedPrompts / breakdown.suggestedPrompts) * 100 : 0;
+        breakdown.acceptanceRateByLines = breakdown.suggestedLinesOfCode !== 0 ? (breakdown.acceptedLinesOfCode / breakdown.suggestedLinesOfCode) * 100 : 0;
+      }));
 
-      // Log each breakdown for debugging
-      // console.log('Breakdown:', breakdown);
-    }));
+      // Sort breakdowns by acceptedPrompts in descending order for top 5
+      const sortedBreakdowns = [...breakdownList.value].sort((a, b) => b.acceptedPrompts - a.acceptedPrompts);
+      const top5BreakdownsAcceptedPrompts = sortedBreakdowns.slice(0, 5);
 
-    //Sort breakdowns map by accepted prompts
-    breakdownList.value.sort((a, b) => b.acceptedPrompts - a.acceptedPrompts);
+      // Update chart data for breakdown breakdown
+      breakdownsChartData.value = {
+        labels: breakdownList.value.map(breakdown => breakdown.name),
+        datasets: [
+          {
+            data: breakdownList.value.map(breakdown => breakdown.acceptedPrompts),
+            backgroundColor: pieChartColors.value,
+          },
+        ],
+      };
 
-    // Get the top 5 breakdowns by accepted prompts
-    const top5BreakdownsAcceptedPrompts = breakdownList.value.slice(0, 5);
+      // Update chart data for top 5 by accepted prompts
+      breakdownsChartDataTop5AcceptedPrompts.value = {
+        labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
+        datasets: [
+          {
+            data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptedPrompts),
+            backgroundColor: pieChartColors.value,
+          },
+        ],
+      };
 
-    breakdownsChartDataTop5AcceptedPrompts.value = {
-      labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
-      datasets: [
-        {
-          data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptedPrompts),
-          backgroundColor: pieChartColors.value,
-        },
-      ],
+      // Update chart data for top 5 by accepted prompts (acceptance rate by lines)
+      breakdownsChartDataTop5AcceptedPromptsByLines.value = {
+        labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
+        datasets: [
+          {
+            data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptanceRateByLines.toFixed(2)),
+            backgroundColor: pieChartColors.value,
+          },
+        ],
+      };
+
+      breakdownsChartDataTop5AcceptedPromptsByCounts.value = {
+        labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
+        datasets: [
+          {
+            data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptanceRateByCount.toFixed(2)),
+            backgroundColor: pieChartColors.value,
+          },
+        ],
+      };
+
+      numberOfBreakdowns.value = breakdownList.value.length;
     };
 
-    breakdownsChartDataTop5AcceptedPromptsByLines.value = {
-      labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
-      datasets: [
-        {
-          data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptanceRateByLines.toFixed(2)),
-          backgroundColor: pieChartColors.value,
-        },
-      ],
-    };
+    // Procesar datos iniciales
+    if (props.metrics && props.metrics.length > 0) {
+      processData(props.metrics);
+    }
 
-    breakdownsChartDataTop5AcceptedPromptsByCounts.value = {
-      labels: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.name),
-      datasets: [
-        {
-          data: top5BreakdownsAcceptedPrompts.map(breakdown => breakdown.acceptanceRateByCount.toFixed(2)),
-          backgroundColor: pieChartColors.value,
-        },
-      ],
-    };
-
-    numberOfBreakdowns.value = breakdownList.value.length;
+    // Observar cambios en props.metrics
+    watch(() => props.metrics, (newMetrics) => {
+      processData(newMetrics);
+    }, { deep: true });
 
     return {
       chartOptions, breakdownList, numberOfBreakdowns,
-      breakdownsChartData, breakdownsChartDataTop5AcceptedPrompts, breakdownsChartDataTop5AcceptedPromptsByLines, breakdownsChartDataTop5AcceptedPromptsByCounts
+      breakdownsChartData, breakdownsChartDataTop5AcceptedPrompts, 
+      breakdownsChartDataTop5AcceptedPromptsByLines, breakdownsChartDataTop5AcceptedPromptsByCounts
     };
   },
   computed: {

@@ -83,7 +83,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, toRef } from 'vue';
+import { defineComponent, ref, toRef, watch } from 'vue';
+import type { PropType } from 'vue';
 import type { Metrics } from '@/model/Metrics';
 import {
   Chart as ChartJS,
@@ -191,155 +192,181 @@ export default defineComponent({
       },
     };
 
-    const data = toRef(props, 'metrics').value;
+    // Función para procesar los datos
+    const processData = (data: Metrics[]) => {
+      if (!data || data.length === 0) return;
+      
+      cumulativeNumberSuggestions.value = 0;
+      const cumulativeSuggestionsData = data.map((m: Metrics) => {
+        cumulativeNumberSuggestions.value += m.total_suggestions_count;
+        return m.total_suggestions_count;
+      });
 
-    cumulativeNumberSuggestions.value = 0;
-    const cumulativeSuggestionsData = data.map((m: Metrics) => {
-      cumulativeNumberSuggestions.value += m.total_suggestions_count;
-      return m.total_suggestions_count;
-    });
+      cumulativeNumberAcceptances.value = 0;
+      const cumulativeAcceptancesData = data.map((m: Metrics) => {
+        cumulativeNumberAcceptances.value += m.total_acceptances_count;
+        return m.total_acceptances_count;
+      });
 
-    cumulativeNumberAcceptances.value = 0;
-    const cumulativeAcceptancesData = data.map((m: Metrics) => {
-      cumulativeNumberAcceptances.value += m.total_acceptances_count;
-      return m.total_acceptances_count;
-    });
+      totalSuggestionsAndAcceptanceChartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            label: 'Total Suggestions',
+            data: cumulativeSuggestionsData,
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderColor: 'rgba(75, 192, 192, 1)'
 
-    totalSuggestionsAndAcceptanceChartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          label: 'Total Suggestions',
-          data: cumulativeSuggestionsData,
-          backgroundColor: 'rgba(75, 192, 192, 0.2)',
-          borderColor: 'rgba(75, 192, 192, 1)'
+          },
+          {
+            label: 'Total Acceptance',
+            data: cumulativeAcceptancesData,
+            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+            borderColor: 'rgba(153, 102, 255, 1)'
+          },
+          
+        ]
+      };
 
-        },
-        {
-          label: 'Total Acceptance',
-          data: cumulativeAcceptancesData,
-          backgroundColor: 'rgba(153, 102, 255, 0.2)',
-          borderColor: 'rgba(153, 102, 255, 1)'
-        },
-        
-      ]
+      cumulativeNumberLOCAccepted.value = 0;
+      const cumulativeLOCAcceptedData = data.map((m: Metrics) => {
+        const total_lines_accepted = m.total_lines_accepted;
+        cumulativeNumberLOCAccepted.value += total_lines_accepted;
+        return total_lines_accepted;
+      });
+
+      chartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            label: 'Total Lines Suggested',
+            data: data.map((m: Metrics) => m.total_lines_suggested),
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderColor: 'rgba(75, 192, 192, 1)'
+
+          },
+          {
+            label: 'Total Lines Accepted',
+            data: cumulativeLOCAcceptedData,
+            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+            borderColor: 'rgba(153, 102, 255, 1)'
+          }
+        ]
+      };
+      
+      const acceptanceRatesByLines = data.map((m: Metrics) => {
+        const rate = m.total_lines_suggested !== 0 ? (m.total_lines_accepted / m.total_lines_suggested) * 100 : 0;
+        return rate;
+      });
+
+      const acceptanceRatesByCount = data.map((m: Metrics) => {
+        const rate = m.total_suggestions_count !== 0 ? (m.total_acceptances_count / m.total_suggestions_count) * 100 : 0;
+        return rate;
+      });
+
+      acceptanceRateByLinesChartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            type: 'line', // This makes the dataset a line in the chart
+            label: 'Acceptance Rate by Lines',
+            data: acceptanceRatesByLines,
+            backgroundColor: 'rgba(173, 216, 230, 0.2)', // light blue
+            borderColor: 'rgba(173, 216, 230, 1)', // darker blue
+            fill: false // This makes the area under the line not filled
+          }
+        ]
+      };
+
+      acceptanceRateByCountChartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            type: 'line', // This makes the dataset a line in the chart
+            label: 'Acceptance Rate by Count',
+            data: acceptanceRatesByCount,
+            backgroundColor: 'rgba(173, 216, 230, 0.2)', // light blue
+            borderColor: 'rgba(173, 216, 230, 1)', // darker blue
+            fill: false // This makes the area under the line not filled
+          }
+        ]
+      };
+      
+      totalLinesSuggested.value = data.reduce((sum: number, m: Metrics) => sum + m.total_lines_suggested, 0);
+
+      if(totalLinesSuggested.value === 0){
+        acceptanceRateAverageByLines.value = 0;
+      } else {
+        acceptanceRateAverageByLines.value = cumulativeNumberLOCAccepted.value / totalLinesSuggested.value * 100;
+      }
+
+      // Calculate acceptanceRateAverageByCount
+      if (cumulativeNumberSuggestions.value === 0) {
+        acceptanceRateAverageByCount.value = 0;
+      } else {
+        acceptanceRateAverageByCount.value = cumulativeNumberAcceptances.value / cumulativeNumberSuggestions.value * 100;
+      }
+
+      totalActiveUsersChartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            label: 'Total Active Users',
+            data: data.map((m: Metrics) => m.total_active_users),
+            backgroundColor: 'rgba(0, 0, 139, 0.2)', // dark blue with 20% opacity
+            borderColor: 'rgba(255, 99, 132, 1)'
+          }
+        ]
+      };
+      
+      // Calcular el total de engaged users (usuarios comprometidos)
+      // En situaciones reales, esto debería venir directamente del modelo de datos
+      totalEngagedUsers.value = data.reduce((sum: number, m: Metrics) => {
+        // Si el modelo tiene total_engaged_users, usarlo; de lo contrario, calcularlo
+        return sum + (m.total_engaged_users || Math.round(m.total_active_users * 0.75)); // Estimación basada en datos de muestra
+      }, 0);
+      
+      // Crear el gráfico para Total Engaged Users
+      totalEngagedUsersChartData.value = {
+        labels: data.map((m: Metrics) => m.day),
+        datasets: [
+          {
+            label: 'Total Engaged Users',
+            data: data.map((m: Metrics) => m.total_engaged_users || Math.round(m.total_active_users * 0.75)), // Usar real o estimado
+            backgroundColor: 'rgba(255, 165, 0, 0.2)', // naranja con 20% de opacidad
+            borderColor: 'rgba(255, 165, 0, 1)' // naranja
+          }
+        ]
+      };
     };
 
-    cumulativeNumberLOCAccepted.value = 0;
-    const cumulativeLOCAcceptedData = data.map((m: Metrics) => {
-      const total_lines_accepted = m.total_lines_accepted;
-      cumulativeNumberLOCAccepted.value += total_lines_accepted;
-      return total_lines_accepted;
-    });
-
-    chartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          label: 'Total Lines Suggested',
-          data: data.map((m: Metrics) => m.total_lines_suggested),
-          backgroundColor: 'rgba(75, 192, 192, 0.2)',
-          borderColor: 'rgba(75, 192, 192, 1)'
-
-        },
-        {
-          label: 'Total Lines Accepted',
-          data: cumulativeLOCAcceptedData,
-          backgroundColor: 'rgba(153, 102, 255, 0.2)',
-          borderColor: 'rgba(153, 102, 255, 1)'
-        }
-      ]
-    };
-    
-    const acceptanceRatesByLines = data.map((m: Metrics) => {
-      const rate = m.total_lines_suggested !== 0 ? (m.total_lines_accepted / m.total_lines_suggested) * 100 : 0;
-      return rate;
-    });
-
-    const acceptanceRatesByCount = data.map((m: Metrics) => {
-      const rate = m.total_suggestions_count !== 0 ? (m.total_acceptances_count / m.total_suggestions_count) * 100 : 0;
-      return rate;
-    });
-
-    acceptanceRateByLinesChartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          type: 'line', // This makes the dataset a line in the chart
-          label: 'Acceptance Rate by Lines',
-          data: acceptanceRatesByLines,
-          backgroundColor: 'rgba(173, 216, 230, 0.2)', // light blue
-          borderColor: 'rgba(173, 216, 230, 1)', // darker blue
-          fill: false // This makes the area under the line not filled
-        }
-      ]
-    };
-
-    acceptanceRateByCountChartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          type: 'line', // This makes the dataset a line in the chart
-          label: 'Acceptance Rate by Count',
-          data: acceptanceRatesByCount,
-          backgroundColor: 'rgba(173, 216, 230, 0.2)', // light blue
-          borderColor: 'rgba(173, 216, 230, 1)', // darker blue
-          fill: false // This makes the area under the line not filled
-        }
-      ]
-    };
-    
-    totalLinesSuggested.value = data.reduce((sum: number, m: Metrics) => sum + m.total_lines_suggested, 0);
-
-    if(totalLinesSuggested.value === 0){
-      acceptanceRateAverageByLines.value = 0;
-    } else {
-      acceptanceRateAverageByLines.value = cumulativeNumberLOCAccepted.value / totalLinesSuggested.value * 100;
+    // Procesar datos iniciales
+    if (props.metrics && props.metrics.length > 0) {
+      processData(props.metrics);
     }
 
-    // Calculate acceptanceRateAverageByCount
-    if (cumulativeNumberSuggestions.value === 0) {
-      acceptanceRateAverageByCount.value = 0;
-    } else {
-      acceptanceRateAverageByCount.value = cumulativeNumberAcceptances.value / cumulativeNumberSuggestions.value * 100;
-    }
+    // Observar cambios en props.metrics
+    watch(() => props.metrics, (newMetrics) => {
+      processData(newMetrics);
+    }, { deep: true });
 
-    totalActiveUsersChartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          label: 'Total Active Users',
-          data: data.map((m: Metrics) => m.total_active_users),
-          backgroundColor: 'rgba(0, 0, 139, 0.2)', // dark blue with 20% opacity
-          borderColor: 'rgba(255, 99, 132, 1)'
-        }
-      ]
+    return { 
+      totalSuggestionsAndAcceptanceChartData, 
+      chartData, 
+      chartOptions, 
+      totalActiveUsersChartData, 
+      totalEngagedUsersChartData,
+      totalActiveUsersChartOptions, 
+      acceptanceRateByLinesChartData, 
+      acceptanceRateByCountChartData, 
+      acceptanceRateAverageByLines, 
+      acceptanceRateAverageByCount, 
+      cumulativeNumberSuggestions, 
+      cumulativeNumberAcceptances, 
+      cumulativeNumberLOCAccepted, 
+      totalLinesSuggested, 
+      totalEngagedUsers 
     };
-    
-    // Calcular el total de engaged users (usuarios comprometidos)
-    // En situaciones reales, esto debería venir directamente del modelo de datos
-    totalEngagedUsers.value = data.reduce((sum: number, m: Metrics) => {
-      // Si el modelo tiene total_engaged_users, usarlo; de lo contrario, calcularlo
-      return sum + (m.total_engaged_users || Math.round(m.total_active_users * 0.75)); // Estimación basada en datos de muestra
-    }, 0);
-    
-    // Crear el gráfico para Total Engaged Users
-    totalEngagedUsersChartData.value = {
-      labels: data.map((m: Metrics) => m.day),
-      datasets: [
-        {
-          label: 'Total Engaged Users',
-          data: data.map((m: Metrics) => m.total_engaged_users || Math.round(m.total_active_users * 0.75)), // Usar real o estimado
-          backgroundColor: 'rgba(255, 165, 0, 0.2)', // naranja con 20% de opacidad
-          borderColor: 'rgba(255, 165, 0, 1)' // naranja
-        }
-      ]
-    };
-
-    return { totalSuggestionsAndAcceptanceChartData, chartData, 
-      chartOptions, totalActiveUsersChartData, totalEngagedUsersChartData,
-      totalActiveUsersChartOptions, acceptanceRateByLinesChartData, acceptanceRateByCountChartData, acceptanceRateAverageByLines, acceptanceRateAverageByCount, cumulativeNumberSuggestions, 
-      cumulativeNumberAcceptances, cumulativeNumberLOCAccepted, totalLinesSuggested, totalEngagedUsers };
   },
   data () {
     return {

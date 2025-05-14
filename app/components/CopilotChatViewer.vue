@@ -37,7 +37,8 @@
 </template>
   
 <script lang="ts">
-  import { defineComponent, ref, toRef } from 'vue';
+  import { defineComponent, ref, toRef, watch } from 'vue';
+  import type { PropType } from 'vue';
   import type { Metrics } from '@/model/Metrics';
   import { Line, Bar } from 'vue-chartjs'
   import {
@@ -73,7 +74,7 @@ Line
 },
 props: {
         metrics: {
-            type: Object,
+            type: Array as PropType<Metrics[]>,
             required: true
         }
     },
@@ -167,6 +168,60 @@ setup(props) {
             borderColor: 'rgba(255, 99, 132, 1)'
         }]
     };
+
+    // Función para procesar los datos
+    const processData = (data: Metrics[]) => {
+        if (!data || data.length === 0) return;
+
+        cumulativeNumberAcceptances.value = 0;
+        cumulativeNumberTurns.value = 0;
+        
+        // Filtrar sólo las métricas relacionadas con Copilot Chat (tienen copilot_chat === true)
+        const chatMetrics = data.filter((m: Metrics) => m.chat && m.chat.copilot_chat === true);
+        
+        if (chatMetrics.length === 0) {
+            // Si no hay métricas de chat, inicializar con datos vacíos
+            totalActiveCopilotChatUsersChartData.value = {
+                labels: [],
+                datasets: [{
+                    label: 'Total Active Chat Users',
+                    data: [],
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)'
+                }]
+            };
+            return;
+        }
+        
+        // Calcular valores acumulativos
+        chatMetrics.forEach((m: Metrics) => {
+            if (m.chat) {
+                cumulativeNumberAcceptances.value += m.chat.acceptances_count || 0;
+                cumulativeNumberTurns.value += m.chat.turns_count || 0;
+            }
+        });
+        
+        // Actualizar gráfico de usuarios activos de chat
+        totalActiveCopilotChatUsersChartData.value = {
+            labels: chatMetrics.map((m: Metrics) => m.day),
+            datasets: [{
+                label: 'Total Active Chat Users',
+                data: chatMetrics.map((m: Metrics) => m.chat ? m.chat.total_active_users : 0),
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)'
+            }]
+        };
+    };
+
+    // Procesar datos iniciales
+    if (props.metrics && props.metrics.length > 0) {
+        processData(props.metrics);
+    }
+
+    // Observar cambios en props.metrics
+    watch(() => props.metrics, (newMetrics) => {
+        processData(newMetrics);
+    }, { deep: true });
     
     return {  totalActiveCopilotChatUsersChartData, totalActiveChatUsersChartOptions,cumulativeNumberAcceptances, cumulativeNumberTurns, totalNumberAcceptancesAndTurnsChartData, chartOptions};
 }

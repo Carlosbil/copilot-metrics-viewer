@@ -21,7 +21,8 @@ export default defineEventHandler(async (event) => {
                 org: event.context.org,
                 ent: event.context.ent,
                 team: event.context.team
-            });            apiUrl = `https://api.github.com/enterprises/${event.context.ent}/team/${event.context.team}/copilot/metrics`;
+            }); 
+            apiUrl = `https://api.github.com/enterprises/${event.context.ent}/team/${event.context.team}/copilot/metrics`;
             // no team test data available, using org data
             // '../../app/mock-data/organization_metrics_response_sample.json'
             mockedDataPath = resolve('public/mock-data/organization_metrics_response_sample.json');
@@ -29,14 +30,21 @@ export default defineEventHandler(async (event) => {
         case 'org':
             logger.info('Processing organization scope request', {
                 org: event.context.org
-            });            apiUrl = `https://api.github.com/orgs/${event.context.org}/copilot/metrics`;
+            }); 
+            apiUrl = `https://api.github.com/orgs/${event.context.org}/copilot/metrics`;
             mockedDataPath = resolve('public/mock-data/organization_metrics_response_sample.json');
             break;
         case 'ent':
             logger.info('Processing enterprises scope request', {
                 ent: event.context.ent,
                 team: event.context.team
-            });            apiUrl = `https://api.github.com/enterprises/${event.context.ent}/copilot/metrics`;
+            }); 
+            apiUrl = `https://api.github.com/enterprises/${event.context.ent}/team/${event.context.team}/copilot/metrics`;
+            logger.info();
+            logger.info();
+            logger.info('URL for enterprise metrics', { apiUrl });
+            logger.info();
+            logger.info();
             mockedDataPath = resolve('public/mock-data/enterprise_metrics_response_sample.json');
             break;
         default:
@@ -52,7 +60,6 @@ export default defineEventHandler(async (event) => {
         // metrics is the old API format
         const metricsData = convertToMetrics(usageData);
 
-        logger.info('Using mocked data');
         return { metrics: metricsData, usage: usageData } as MetricsApiResponse;
     }
 
@@ -72,6 +79,7 @@ export default defineEventHandler(async (event) => {
         const usageData = ensureCopilotMetrics(response as CopilotMetrics[]);
         // metrics is the old API format
         const metricsData = convertToMetrics(usageData);
+        logger.info('Metrics data fetched successfully', { metricsData, usageData });
         return { metrics: metricsData, usage: usageData } as MetricsApiResponse;
     } catch (error: any) {
         logger.error('Error fetching metrics data:', error);
