@@ -61,13 +61,13 @@
         <br>
 
         <v-data-table :headers="headers" :items="breakdownList" class="elevation-2" style="padding-left: 100px; padding-right: 100px;">
-            <template #item="{item}">
-                <tr>
+            <template #item="{item}">                <tr>
                     <td>{{ item.name }}</td>
                     <td>{{ item.acceptedPrompts }}</td>
                     <td>{{ item.suggestedPrompts }}</td>
                     <td>{{ item.acceptedLinesOfCode }}</td>
                     <td>{{ item.suggestedLinesOfCode }}</td>
+                    <td>{{ item.engagedUsers }}</td>
                     <td v-if="item.acceptanceRateByCount !== undefined">{{ item.acceptanceRateByCount.toFixed(2) }}%</td>
                     <td v-if="item.acceptanceRateByLines !== undefined">{{ item.acceptanceRateByLines.toFixed(2) }}%</td>
                 </tr>
@@ -163,24 +163,22 @@ export default defineComponent({
     data.forEach((m: Metrics) => m.breakdown.forEach(breakdownData => 
     {
       const breakdownName = breakdownData[props.breakdownKey as keyof typeof breakdownData] as string;
-      let breakdown = breakdownList.value.find(b => b.name === breakdownName);
-
-      if (!breakdown) {
+      let breakdown = breakdownList.value.find(b => b.name === breakdownName);      if (!breakdown) {
         // Create a new breakdown object if it does not exist
-        breakdown = new Breakdown({
-          name: breakdownName,
+        breakdown = new Breakdown({          name: breakdownName,
           acceptedPrompts: breakdownData.acceptances_count,
           suggestedPrompts: breakdownData.suggestions_count,
           suggestedLinesOfCode: breakdownData.lines_suggested,
           acceptedLinesOfCode: breakdownData.lines_accepted,
+          engagedUsers: breakdownData.engaged_users || 0,
         });
         breakdownList.value.push(breakdown);
       } else {
-        // Update the existing breakdown object
-        breakdown.acceptedPrompts += breakdownData.acceptances_count;
+        // Update the existing breakdown object        breakdown.acceptedPrompts += breakdownData.acceptances_count;
         breakdown.suggestedPrompts += breakdownData.suggestions_count;
         breakdown.suggestedLinesOfCode += breakdownData.lines_suggested;
         breakdown.acceptedLinesOfCode += breakdownData.lines_accepted;
+        breakdown.engagedUsers += breakdownData.engaged_users || 0;
       }
       // Recalculate the acceptance rates
       breakdown.acceptanceRateByCount = breakdown.suggestedPrompts !== 0 ? (breakdown.acceptedPrompts / breakdown.suggestedPrompts) * 100 : 0;
@@ -237,14 +235,14 @@ export default defineComponent({
     },
     breakdownDisplayNamePlural() {
       return `${this.breakdownDisplayName}s`;
-    },
-    headers() {
+    },    headers() {
       return [
         { title: `${this.breakdownDisplayName} Name`, key: 'name' },
         { title: 'Accepted Prompts', key: 'acceptedPrompts' },
         { title: 'Suggested Prompts', key: 'suggestedPrompts' },
         { title: 'Accepted Lines of Code', key: 'acceptedLinesOfCode' },
         { title: 'Suggested Lines of Code', key: 'suggestedLinesOfCode' },
+        { title: 'Engaged Users', key: 'engagedUsers' },
         { title: 'Acceptance Rate by Count (%)', key: 'acceptanceRateByCount' },
         { title: 'Acceptance Rate by Lines (%)', key: 'acceptanceRateByLines' },
       ];

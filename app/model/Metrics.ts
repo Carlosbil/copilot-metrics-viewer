@@ -6,6 +6,7 @@ export class BreakdownData {
     lines_suggested: number;
     lines_accepted: number;
     active_users: number;
+    engaged_users: number;
     chat_acceptances: number;
     chat_turns: number;
     active_chat_users: number;
@@ -21,6 +22,7 @@ export class BreakdownData {
       this.chat_acceptances = data.chat_acceptances;
       this.chat_turns = data.chat_turns;
       this.active_chat_users = data.active_chat_users;
+      this.engaged_users = data.engaged_users || 0; 
     }
   }
   
@@ -30,6 +32,7 @@ export class BreakdownData {
     total_lines_suggested: number;
     total_lines_accepted: number;
     total_active_users: number;
+    total_engaged_users: number; // Nueva propiedad
     total_chat_acceptances: number;
     total_chat_turns: number;
     total_active_chat_users: number;
@@ -44,6 +47,7 @@ export class BreakdownData {
       this.total_lines_suggested = data.total_lines_suggested;
       this.total_lines_accepted = data.total_lines_accepted;
       this.total_active_users = data.total_active_users;
+      this.total_engaged_users = data.total_engaged_users || 0;
       this.total_chat_acceptances = data.total_chat_acceptances;
       this.total_chat_turns = data.total_chat_turns;
       this.total_active_chat_users = data.total_active_chat_users;

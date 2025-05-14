@@ -6,6 +6,7 @@ export class Breakdown {
   acceptedLinesOfCode: number;
   acceptanceRateByCount: number;
   acceptanceRateByLines: number;
+  engagedUsers: number;
 
   constructor(data: any) {
     this.name = data.name;
@@ -15,5 +16,6 @@ export class Breakdown {
     this.acceptedLinesOfCode = data.acceptedLinesOfCode;
     this.acceptanceRateByCount = data.acceptanceRateByCount;
     this.acceptanceRateByLines = data.acceptanceRateByLines;
+    this.engagedUsers = data.engagedUsers || 0;
   }
 }
