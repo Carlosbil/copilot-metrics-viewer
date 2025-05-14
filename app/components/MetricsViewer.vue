@@ -54,20 +54,6 @@
           </div>
         </v-card-item>
       </v-card>
-      
-      <!-- Nueva tarjeta para Total Engaged Users -->
-      <v-card elevation="4" color="white" variant="elevated" class="mx-auto my-3" style="width: 300px; height: 175px;">
-        <v-card-item>
-          <div class="tiles-text">
-            <div class="spacing-10"/>
-            <div class="text-h6 mb-1">Total Engaged Users</div>
-            <div class="text-caption">
-              Over the last 28 days
-            </div>
-            <p class="text-h4">{{ totalEngagedUsers }}</p>
-          </div>
-        </v-card-item>
-      </v-card>
     </div>
 
     <v-main class="p-1" style="min-height: 300px;">

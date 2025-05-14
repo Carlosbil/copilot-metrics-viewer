@@ -12,7 +12,22 @@ export default defineEventHandler(async (event) => {
 
     event.context.ent = config.public.githubEnt
     event.context.org = config.public.githubOrg
-    event.context.team = config.public.githubTeam
+    
+    // Handle multiple teams as an array
+    const teamsString = config.public.githubTeam;
+    event.context.teams = teamsString ? teamsString.split(',').map(team => team.trim()) : [];
+    
+    // Check if a specific team was requested in the query parameters
+    const query = getQuery(event);
+    const requestedTeam = query.team as string;
+    
+    // If a specific team was requested and it's in the teams list, use it
+    if (requestedTeam && event.context.teams.includes(requestedTeam)) {
+        event.context.team = requestedTeam;
+    } else {
+        // Otherwise use the first team in the list
+        event.context.team = event.context.teams.length > 0 ? event.context.teams[0] : null;
+    }
 
     if (event.context.team && event.context.org) {
         event.context.scope = 'team' as Scope;

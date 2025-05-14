@@ -3,10 +3,23 @@
     <v-toolbar color="indigo" elevation="4">
       <v-btn icon>
         <v-icon>mdi-github</v-icon>
-      </v-btn>
-
-      <v-toolbar-title class="toolbar-title">{{ displayName }}</v-toolbar-title>
+      </v-btn>      <v-toolbar-title class="toolbar-title">{{ displayName }}</v-toolbar-title>
       <h2 class="error-message"> {{ mockedDataMessage }} </h2>
+        <!-- Team selector dropdown -->
+      <v-menu v-if="teams && teams.length > 1">
+        <template v-slot:activator="{ props }">
+          <v-btn color="white" variant="text" class="ml-2 team-selector" v-bind="props">
+            <span class="team-name">{{ currentTeam || 'Select team' }}</span>
+            <v-icon>mdi-chevron-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list>
+          <v-list-item v-for="team in teams" :key="team" @click="selectTeam(team)">
+            <v-list-item-title>{{ team }}</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+      
       <v-spacer />
 
       <!-- Conditionally render the logout button -->
@@ -96,14 +109,40 @@ export default defineNuxtComponent({
     CopilotChatViewer,
     SeatsAnalysisViewer,
     ApiResponse
-  },
-  methods: {
+  },  methods: {
     logout() {
       const { clear } = useUserSession()
       this.metrics = [];
       this.seats = [];
       // console.log('metrics are now', this.metrics);
       clear();
+    },
+      async selectTeam(team) {
+      // Update current team
+      this.currentTeam = team;
+      
+      // Reset data
+      this.metricsReady = false;
+      this.apiError = undefined;
+      
+      // Fetch new data with the selected team
+      try {
+        const metricsFetch = await $fetch('/api/metrics', {
+          params: { team: team }
+        });
+        this.metrics = metricsFetch.metrics || [];
+        this.originalMetrics = metricsFetch.usage || [];
+        this.metricsReady = true;
+        
+        const seatsFetch = await $fetch('/api/seats', {
+          params: { team: team }
+        });
+        this.seats = seatsFetch || [];
+        this.seatsReady = true;
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        this.apiError = `Error fetching data: ${error.message || 'Unknown error'}`;
+      }
     }
   },
 
@@ -115,15 +154,26 @@ export default defineNuxtComponent({
   },
   created() {
     this.tabItems.unshift(this.itemName);
-  },
-  async setup() {
+  },  async setup() {
     const { loggedIn, user } = useUserSession()
     const config = useRuntimeConfig();
     const showLogoutButton = computed(() => config.public.usingGithubAuth && loggedIn.value);
     const mockedDataMessage = computed(() => config.public.isDataMocked ? 'Using mock data - see README if unintended' : '');
     const itemName = computed(() => config.public.scope);
-    const githubInfo = getDisplayName(config.public)
-    const displayName = computed(() => githubInfo);
+    
+    // Parse teams from config
+    const teams = ref(config.public.githubTeam ? config.public.githubTeam.split(',').map((team: string) => team.trim()) : []);
+    const currentTeam = ref(teams.value.length > 0 ? teams.value[0] : null);
+      // Compute display name based on current team
+    const displayName = computed(() => {
+      const displayInfo = {
+        githubOrg: config.public.githubOrg,
+        githubEnt: config.public.githubEnt,
+        githubTeam: currentTeam.value,
+        scope: config.public.scope
+      };
+      return getDisplayName(displayInfo);
+    });
 
     const metricsReady = ref(false);
     const metrics = ref<Metrics[]>([]);
@@ -187,8 +237,7 @@ export default defineNuxtComponent({
     }
 
     return {
-      metricsReady,
-      metrics,
+      metricsReady,      metrics,
       originalMetrics,
       seatsReady,
       seats,
@@ -199,7 +248,9 @@ export default defineNuxtComponent({
       mockedDataMessage,
       itemName,
       displayName,
-      user
+      user,
+      teams,
+      currentTeam
     };
   },
 })
@@ -256,5 +307,22 @@ export default defineNuxtComponent({
   margin-right: 8px;
   margin-left: 8px;
   border: 2px solid white;
+}
+
+.team-selector {
+  margin-left: 16px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  height: 36px;
+  font-weight: normal;
+}
+
+.team-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
 }
 </style>

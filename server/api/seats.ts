@@ -1,5 +1,5 @@
 import { Seat } from "@/model/Seat";
-import type FetchError from 'ofetch';
+import type {FetchError} from 'ofetch';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -12,13 +12,13 @@ export default defineEventHandler(async (event) => {
 
   switch (event.context.scope) {
     case 'team':
-    case 'org':
-      apiUrl = `https://api.github.com/orgs/${event.context.org}/copilot/billing/seats`;
-      mockedDataPath = resolve('public/mock-data/organization_seats_response_sample.json');
-      break;
     case 'ent':
       apiUrl = `https://api.github.com/enterprises/${event.context.ent}/copilot/billing/seats`;
       mockedDataPath = resolve('public/mock-data/enterprise_seats_response_sample.json');
+      break;
+    case 'org':
+      apiUrl = `https://api.github.com/orgs/${event.context.org}/copilot/billing/seats`;
+      mockedDataPath = resolve('public/mock-data/organization_seats_response_sample.json');
       break;
     default:
       return new Response('Invalid configuration/parameters for the request', { status: 400 });
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
         page: page
       }
     }) as { seats: unknown[], total_seats: number };
-  } catch (error: FetchError) {
+  } catch (error: any) {
     logger.error('Error fetching seats data:', error);
     return new Response('Error fetching seats data. Error: ' + error, { status: error.statusCode || 500 });
   }
